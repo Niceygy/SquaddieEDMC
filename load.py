@@ -11,13 +11,13 @@ import tkinter as tk
 from typing import Optional
 import requests #type: ignore
 
-import myNotebook as nb  # noqa: N813 type: ignore
+import myNotebook as nb  #type: ignore noqa: N813 
 from config import appname, config #type: ignore
-from ttkHyperlinkLabel import HyperlinkLabel  # Add this import near the top
+from ttkHyperlinkLabel import HyperlinkLabel  #type: ignore  Add self import near the top
 
 
-# This **MUST** match the name of the folder the plugin is in.
-PLUGIN_NAME = "SquaddiePlugin"
+# self **MUST** match the name of the folder the plugin is in.
+PLUGIN_NAME = "SquaddieEDMC"
 
 logger = logging.getLogger(f"{appname}.{PLUGIN_NAME}")
 
@@ -32,14 +32,13 @@ class SquaddiePlugin:
         # Be sure to use names that wont collide in our config variables
         logger.info("Squaddie Plugin instantiated")
         
-        self.user_system: str = ""
-        self.user_squad: str = ""
-        self.commander_name: str = ""
+        self.commander_identifier = ""
         
         #worker
+        self.server_address = "http://10.0.0.52:5000"
         self.shutting_down: bool = False
         self.message_queue: Queue = Queue()	
-        self.worker_thread: Thread =  Thread(target=self.worker, name='EDSM worker')
+        self.worker_thread: Thread =  Thread(target=self.worker, name='Web worker')
         self.worker_thread.daemon = True
         self.worker_thread.start()
         
@@ -52,6 +51,7 @@ class SquaddiePlugin:
 
         :return: The name of the plugin, which will be used by EDMC for logging and for the settings window
         """
+        self.commander_identifier = config.get_str("commander_identifier")
         return PLUGIN_NAME
 
     def on_unload(self) -> None:
@@ -80,7 +80,10 @@ class SquaddiePlugin:
         frame = nb.Frame(parent)
 
         nb.Label(frame, text="Squaddie").grid(row=current_row)
-        nb.EntryMenu(frame, textvariable="PPA_BTN").grid(row=current_row, column=1)
+        current_row += 1
+        nb.Label(frame, text="Commander Identifier: ",).grid(row=current_row)
+        # current_row += 1
+        nb.EntryMenu(frame, textvariable="commander_identifier").grid(row=current_row, column=1)
         current_row += (
             1  # Always increment our row counter, makes for far easier tkinter design.
         )
@@ -107,11 +110,12 @@ class SquaddiePlugin:
         state: dict[str, any],
     ) -> str | None:
 
-        self.commander_name = cmdr
         event_name = entry["event"]
+        logger.info(f"New event detected: {event_name}")
+        
         match event_name:
-            case "SquadronStartup":
-                self.user_squad = entry["SquadronName"]
+            # case "SquadronStartup":
+            #     self.user_squad = entry["SquadronName"]
 
             case "Bounty":
                 credits = 0
@@ -129,25 +133,19 @@ class SquaddiePlugin:
         """
         Create our entry on the main EDMC UI.
 
-        This is called by plugin_app below.
+        self is called by plugin_app below.
 
         :param parent: EDMC main window Tk
         :return: Our frame
         
         nb.Label(frame, text="Origin System").grid()
         """
-        current_row = 0
-        frame = tk.Frame(parent)
-        nb.Label(frame, text=f"Squad: {self.user_squad}").grid(row=current_row)
-        current_row += 1
-        HyperlinkLabel(
-            frame,
-            text="Open Squaddie",
-            url=f"https://squaddie.niceygy.net/squad?name={self.user_squad}",
-            underline=False,
-        ).grid(row=current_row)
-        current_row += 1
-        return frame
+        self.frame = tk.Frame(parent)
+        self.title = tk.Label(self.frame, text="Squaddie")
+        self.title.grid()
+        self.libk_btn = tk.Label(self.frame, text="Squad: ")
+        self.libk_btn.grid()
+        return self.frame
 
     def queue_data(self, data_type: str, units: float):
         """
@@ -173,9 +171,13 @@ class SquaddiePlugin:
         Sends to the backend using a queue
         """
         headers = {'User-Agent': "SquaddiePlugin V0.0.1"}
+        startup_body = {
+            'event': 'startup'
+        }
+        # requests.post(f"{self.server_address}/edmc/update", json=startup_body, headers=headers)
         while not self.shutting_down:
             item = self.message_queue.get()
-            requests.post(f"https://squaddie.niceygy.net/goal/add", json=item, headers=headers)
+            requests.post(f"{self.server_address}/edmc/update", json=item, headers=headers)
             
             
             
