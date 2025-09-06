@@ -26,7 +26,7 @@ logger = logging.getLogger(f"{appname}.{PLUGIN_NAME}")
 squadName: Optional[tk.Label]
 
 
-class SquaddiePlugin:
+class SquaddieEDMC:
     """ """
 
     def __init__(self) -> None:
@@ -132,11 +132,12 @@ class SquaddiePlugin:
         entry: dict[str, any],
         state: dict[str, any],
     ) -> str | None:
-
+        logger.info("journal_entry")
         event_name = entry["event"]
         logger.info(f"New event detected: {event_name}")
 
         self.commander_name = cmdr
+        logger.info(f"Now set to commander {cmdr}")
 
         match event_name:
             # case "SquadronStartup":
@@ -202,7 +203,7 @@ class SquaddiePlugin:
         if self.commander_name == "" or self.commander_name is None:
             logger.info("No commander found!")
             # Wait up to 5 seconds for commander_name to be set
-            for _ in range(50):
+            for _ in range(100):
                 if self.commander_name != "" and self.commander_name is not None:
                     break
                 time.sleep(0.1)
@@ -232,7 +233,7 @@ class SquaddiePlugin:
                 )
 
 
-cc = SquaddiePlugin()
+cc = SquaddieEDMC()
 
 
 # Note that all of these could be simply replaced with something like:
