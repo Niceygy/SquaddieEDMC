@@ -32,6 +32,7 @@ class SquaddieEDMC:
     def __init__(self) -> None:
         # Be sure to use names that wont collide in our config variables
         logger.info("Squaddie Plugin instantiated")
+        self.version = "0.0.2"
 
         self.commander_name = ""
         self.squad_name = ""
@@ -133,9 +134,7 @@ class SquaddieEDMC:
             logger.info(f"Now set to commander {cmdr}")
 
         match event_name:
-            # case "SquadronStartup":
-            #     self.user_squad = entry["SquadronName"]
-
+            #combat
             case "Bounty":
                 credits = 0
 
@@ -146,10 +145,30 @@ class SquaddieEDMC:
 
                 self.queue_data("Combat Bonds", credits)
 
+            #trade
             case "MarketSell":
                 if "TotalSale" in entry:
                     self.queue_data("Trade", entry["TotalSale"])
 
+            #powerplay
+            case "PowerplayMerits":
+                if "MeritsGained" in entry:
+                    self.queue_data("Powerplay", entry['MeritsGained'])
+
+            #explo 
+            case "SellExplorationData" | "MultiSellExplorationData":
+                if "TotalEarnings" in entry:
+                    self.queue_data("Exploration", entry['TotalEarnings'])
+                    
+            #exobio
+            case "SellOrganicData":
+                if 'BioData' in entry:
+                    credits = 0
+                    for item in entry['BioData']:
+                        if 'Value' in item and 'Bonus' in item:
+                            credits += item['Value']
+                            credits += item['Bonus']
+                    self.queue_data("Exobiology", credits)
         return None
 
     def setup_main_ui(self, parent: tk.Frame) -> tk.Frame:
@@ -164,9 +183,9 @@ class SquaddieEDMC:
         nb.Label(frame, text="Origin System").grid()
         """
         self.frame = tk.Frame(parent)
-        self.title = tk.Label(self.frame, text="Squaddie")
+        self.title = tk.Label(self.frame, text=f"SQUADDIE V{self.version}")
         self.title.grid()
-        self.libk_btn = tk.Label(self.frame, text=f"Squad: {self.squad_name}")
+        self.libk_btn = tk.Label(self.frame, text=f"Squad: {self.squad_name}".upper())
         self.libk_btn.grid()
         return self.frame
 
@@ -184,11 +203,12 @@ class SquaddieEDMC:
 
         self.message_queue.put(
             {
-                "type:": data_type,
+                "type": data_type,
                 "commander_identifier": self.commander_name,
                 "units": units,
             }
         )
+        
         return
 
     def find_squad(self):
@@ -222,7 +242,7 @@ class SquaddieEDMC:
             item = self.message_queue.get()
             if self.commander_name != "" or self.squad_name != "":
                 requests.post(
-                    f"{self.server_address}/edmc/update", json=item, headers=headers
+                    f"{self.server_address}/edmc/update", data=item, headers=headers
                 )
 
 
