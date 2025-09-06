@@ -53,12 +53,8 @@ class SquaddieEDMC:
 
         :return: The name of the plugin, which will be used by EDMC for logging and for the settings window
         """
-        _cmdr_name = config.get_str("SQUADDIE_commander_identifier")
-        if _cmdr_name is not None:
-            self.commander_name = _cmdr_name
-
         _squad_name = config.get_str("SQUADDIE_squadron")
-        if _squad_name is not None:
+        if _squad_name is not None and _squad_name != "":
             self.squad_name = _squad_name
 
         if self.squad_name == "" or self.squad_name is None:
@@ -74,9 +70,6 @@ class SquaddieEDMC:
         It is the last thing called before EDMC shuts down. Note that blocking code here will hold the shutdown process.
         """
         self.shutting_down = True
-        if self.commander_name != "" and self.commander_name is not None:
-            config.set("SQUADDIE_commander_identifier", self.commander_name)
-
         if self.squad_name != "" and self.squad_name is not None:
             config.set("SQUADDIE_squadron", self.squad_name)
         self.on_preferences_closed("", False)  # Save our prefs
@@ -132,12 +125,12 @@ class SquaddieEDMC:
         entry: dict[str, any],
         state: dict[str, any],
     ) -> str | None:
-        logger.info("journal_entry")
-        event_name = entry["event"]
-        logger.info(f"New event detected: {event_name}")
 
-        self.commander_name = cmdr
-        logger.info(f"Now set to commander {cmdr}")
+        event_name = entry["event"]
+
+        if self.commander_name != cmdr:
+            self.commander_name = cmdr
+            logger.info(f"Now set to commander {cmdr}")
 
         match event_name:
             # case "SquadronStartup":
@@ -281,3 +274,6 @@ def plugin_app(parent: tk.Frame) -> tk.Frame | None:
     See PLUGINS.md#display
     """
     return cc.setup_main_ui(parent)
+
+def journal_entry(cmdr: str, is_beta: bool, system: str, station: str, entry: dict[str, any], state: dict[str, any]) -> str | None:
+    return cc.journal_entry(cmdr, is_beta, system, station, entry, state)
