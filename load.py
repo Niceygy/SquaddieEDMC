@@ -45,6 +45,9 @@ class SquaddieEDMC:
         self.worker_thread: Thread = Thread(target=self.worker, name="Web worker")
         self.worker_thread.daemon = True
         self.worker_thread.start()
+        
+        self.online_thread = Thread(target=self.send_online)
+        self.online_thread.daemon = True
 
     def on_load(self) -> str:
         """
@@ -62,6 +65,8 @@ class SquaddieEDMC:
             self.squad_search_thread = Thread(
                 target=self.find_squad, name="Find Squad Thread"
             ).start()
+        
+        self.online_thread.start()
         return PLUGIN_NAME
 
     def on_unload(self) -> None:
@@ -134,7 +139,7 @@ class SquaddieEDMC:
             logger.info(f"Now set to commander {cmdr}")
 
         match event_name:
-            #combat
+            # combat
             case "Bounty":
                 credits = 0
 
@@ -145,29 +150,29 @@ class SquaddieEDMC:
 
                 self.queue_data("Combat Bonds", credits)
 
-            #trade
+            # trade
             case "MarketSell":
                 if "TotalSale" in entry:
                     self.queue_data("Trade", entry["TotalSale"])
 
-            #powerplay
+            # powerplay
             case "PowerplayMerits":
                 if "MeritsGained" in entry:
-                    self.queue_data("Powerplay", entry['MeritsGained'])
+                    self.queue_data("Powerplay", entry["MeritsGained"])
 
-            #explo 
+            # explo
             case "SellExplorationData" | "MultiSellExplorationData":
                 if "TotalEarnings" in entry:
-                    self.queue_data("Exploration", entry['TotalEarnings'])
-                    
-            #exobio
+                    self.queue_data("Exploration", entry["TotalEarnings"])
+
+            # exobio
             case "SellOrganicData":
-                if 'BioData' in entry:
+                if "BioData" in entry:
                     credits = 0
-                    for item in entry['BioData']:
-                        if 'Value' in item and 'Bonus' in item:
-                            credits += item['Value']
-                            credits += item['Bonus']
+                    for item in entry["BioData"]:
+                        if "Value" in item and "Bonus" in item:
+                            credits += item["Value"]
+                            credits += item["Bonus"]
                     self.queue_data("Exobiology", credits)
         return None
 
@@ -198,7 +203,7 @@ class SquaddieEDMC:
         units=66
         """
 
-        if self.commander_name is None or self.commander_name is "":
+        if self.commander_name is None or self.commander_name == "":
             return
 
         self.message_queue.put(
@@ -208,8 +213,17 @@ class SquaddieEDMC:
                 "units": units,
             }
         )
-        
+
         return
+
+    def send_online(self):
+        while self.commander_name == "" or self.commander_name == None:
+            logger.debug(f"self.commander_name = {self.commander_name}")
+            time.sleep(0.2)
+        ver = requests.get(
+            f"{self.server_address}/edmc/online?cmdr={self.commander_name}",
+            headers={"User-Agent": "SquaddiePlugin V0.0.1"},
+        ).text()
 
     def find_squad(self):
         logger.info(f"No squad found for {self.commander_name}, starting lookup")
@@ -221,7 +235,9 @@ class SquaddieEDMC:
                     break
                 time.sleep(0.1)
             else:
-                logger.info("Timeout waiting for commander_name, aborting squad lookup.")
+                logger.info(
+                    "Timeout waiting for commander_name, aborting squad lookup."
+                )
                 return
 
         data = requests.get(
@@ -230,8 +246,10 @@ class SquaddieEDMC:
 
         self.squad_name = data["squad_name"]
         self.squad_tag = data["squad_tag"]
-        
-        logger.info(f"Found squad for {self.commander_name}! They're in {self.squad_name} ({self.squad_tag})")
+
+        logger.info(
+            f"Found squad for {self.commander_name}! They're in {self.squad_name} ({self.squad_tag})"
+        )
 
     def worker(self):
         """
@@ -295,5 +313,13 @@ def plugin_app(parent: tk.Frame) -> tk.Frame | None:
     """
     return cc.setup_main_ui(parent)
 
-def journal_entry(cmdr: str, is_beta: bool, system: str, station: str, entry: dict[str, any], state: dict[str, any]) -> str | None:
+
+def journal_entry(
+    cmdr: str,
+    is_beta: bool,
+    system: str,
+    station: str,
+    entry: dict[str, any],
+    state: dict[str, any],
+) -> str | None:
     return cc.journal_entry(cmdr, is_beta, system, station, entry, state)
