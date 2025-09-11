@@ -39,7 +39,7 @@ class SquaddieEDMC:
         self.squad_tag = ""
 
         # worker
-        self.server_address = "http://10.0.0.52:5000"
+        self.server_address = "https://squaddie.niceygy.net"
         self.shutting_down: bool = False
         self.message_queue: Queue = Queue()
         self.worker_thread: Thread = Thread(target=self.worker, name="Web worker")
@@ -188,11 +188,28 @@ class SquaddieEDMC:
         nb.Label(frame, text="Origin System").grid()
         """
         self.frame = tk.Frame(parent)
-        self.title = tk.Label(self.frame, text=f"SQUADDIE V{self.version}")
+        self.title = tk.Label(self.frame, text=f"Squaddie V{self.version}")
         self.title.grid()
-        self.libk_btn = tk.Label(self.frame, text=f"Squad: {self.squad_name}".upper())
+        self.libk_btn = tk.Label(self.frame, text=f"Squad: {self.first_letter_capital(self.squad_name)}")
         self.libk_btn.grid()
         return self.frame
+    
+    def first_letter_capital(self, string: str) -> str:
+        """Capitalise the first letter after a space
+        squad name -> Squad Name
+
+        Args:
+            string (str): Input string
+
+        Returns:
+            str: Output formatted string
+        """
+        string[0] = string[0].upper()
+        for i in range(len(string)):
+            if string[i] == " ":
+                string[i+1] = string[i+1].upper()
+                
+        return string
 
     def queue_data(self, data_type: str, units: float):
         """
@@ -218,7 +235,7 @@ class SquaddieEDMC:
 
     def send_online(self):
         while self.commander_name == "" or self.commander_name == None:
-            logger.debug(f"self.commander_name = {self.commander_name}")
+            # logger.debug(f"self.commander_name = {self.commander_name}")
             time.sleep(0.2)
         ver = requests.get(
             f"{self.server_address}/edmc/online?cmdr={self.commander_name}",
@@ -246,6 +263,8 @@ class SquaddieEDMC:
 
         self.squad_name = data["squad_name"]
         self.squad_tag = data["squad_tag"]
+        
+        config.set("SQUADDIE_squadron", self.squad_name)
 
         logger.info(
             f"Found squad for {self.commander_name}! They're in {self.squad_name} ({self.squad_tag})"
